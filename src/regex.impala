@@ -1,0 +1,79 @@
+type Matcher = fn (&[u8], i32) -> (bool, i32);
+
+fn @and(a: Matcher, b: Matcher) -> Matcher {
+    @ |str, i| {
+        let (ok_a, j) = a(str, i);
+        if !ok_a { return(false, j) }
+        b(str, j)
+    }
+}
+
+fn @or(a: Matcher, b: Matcher) -> Matcher {
+    @ |str, i| {
+        let (ok_a, j) = a(str, i);
+        if ok_a { return(true, j) }
+        b(str, i)
+    }
+}
+
+fn @empty() -> Matcher {
+    @ |str, i| (true, i)
+}
+
+fn @any() -> Matcher {
+    @ |str, i| (true, i + 1)
+}
+
+fn @one(c: u8) -> Matcher {
+    @ |str, i| {
+        if str(i) == c {
+            (true, i + 1)
+        } else {
+            (false, i)
+        }
+    }
+}
+
+fn @maybe(r: Matcher) -> Matcher {
+    @ |str, i| {
+        let (_, j) = r(str, i);
+        (true, j)
+    }
+}
+
+fn @many(r: Matcher) -> Matcher {
+    @ |str, i| {
+        let mut j = i;
+        while true {
+            let (ok, k) = r(str, j);
+            if !ok { break() }
+            j = k;
+        }
+        return(true, j)
+    } 
+}
+
+fn @many1(r: Matcher) -> Matcher {
+    and(r, many(r))
+}
+
+fn @parse(regex: &[u8]) -> Matcher {
+    fn @(?i) parse_inner(cur: Matcher, prev: Matcher, i: i32) -> (Matcher, i32) {
+        match regex(i) {
+            '('  => {
+                let (next, j) = parse_inner(empty(), empty(), i + 1);
+                parse_inner(and(cur, prev), next, j)
+            },
+            ')'  => { (and(cur, prev), i+ 1) },
+            '\0' => { (and(cur, prev), i)    },
+            '+'  => { let next = many1(prev); parse_inner(cur, next, i + 1) },
+            '*'  => { let next = many(prev);  parse_inner(cur, next, i + 1) },
+            '?'  => { let next = maybe(prev); parse_inner(cur, next, i + 1) },
+            '.'  => { let next = any();       parse_inner(and(cur, prev), next, i + 1) },
+            c    => { let next = one(c);      parse_inner(and(cur, prev), next, i + 1) }
+        }
+    }
+    let (matcher, _) = parse_inner(empty(), empty(), 0);
+    matcher
+}
+
