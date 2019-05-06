@@ -58,22 +58,22 @@ fn @many1(r: Matcher) -> Matcher {
 }
 
 fn @parse(regex: &[u8]) -> Matcher {
-    fn @(?i) parse_inner(cur: Matcher, prev: Matcher, i: i32) -> (Matcher, i32) {
+    fn @(?i) eat(cur: Matcher, prev: Matcher, i: i32) -> (Matcher, i32) {
         match regex(i) {
             '('  => {
-                let (next, j) = parse_inner(empty(), empty(), i + 1);
-                parse_inner(and(cur, prev), next, j)
+                let (next, j) = eat(empty(), empty(), i + 1);
+                eat(and(cur, prev), next, j)
             },
             ')'  => { (and(cur, prev), i+ 1) },
             '\0' => { (and(cur, prev), i)    },
-            '+'  => { let next = many1(prev); parse_inner(cur, next, i + 1) },
-            '*'  => { let next = many(prev);  parse_inner(cur, next, i + 1) },
-            '?'  => { let next = maybe(prev); parse_inner(cur, next, i + 1) },
-            '.'  => { let next = any();       parse_inner(and(cur, prev), next, i + 1) },
-            c    => { let next = one(c);      parse_inner(and(cur, prev), next, i + 1) }
+            '+'  => { let next = many1(prev); eat(cur, next, i + 1) },
+            '*'  => { let next = many(prev);  eat(cur, next, i + 1) },
+            '?'  => { let next = maybe(prev); eat(cur, next, i + 1) },
+            '.'  => { let next = any();       eat(and(cur, prev), next, i + 1) },
+            c    => { let next = one(c);      eat(and(cur, prev), next, i + 1) }
         }
     }
-    let (matcher, _) = parse_inner(empty(), empty(), 0);
+    let (matcher, _) = eat(empty(), empty(), 0);
     matcher
 }
 
